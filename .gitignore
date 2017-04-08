@@ -5,3 +5,5 @@
 data
 fasttext
 result
+fasttext_zmq_client
+fasttext_zmq_server

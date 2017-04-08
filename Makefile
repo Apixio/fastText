@@ -12,6 +12,8 @@ CXXFLAGS = -pthread -std=c++0x
 OBJS = args.o dictionary.o matrix.o vector.o model.o utils.o fasttext.o
 INCLUDES = -I.
 
+all: fasttext fasttext_zmq_server fasttext_zmq_client
+
 opt: CXXFLAGS += -O3 -funroll-loops
 opt: fasttext
 
@@ -39,8 +41,19 @@ utils.o: src/utils.cc src/utils.h
 fasttext.o: src/fasttext.cc src/*.h
 	$(CXX) $(CXXFLAGS) -c src/fasttext.cc
 
+fasttext_zmq_server.o: src/fasttext_zmq_server.cc src/*.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+fasttext_zmq_client.o: src/fasttext_zmq_client.cc
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
+
 fasttext: $(OBJS) src/fasttext.cc
 	$(CXX) $(CXXFLAGS) $(OBJS) src/main.cc -o fasttext
 
+fasttext_zmq_server: $(OBJS) fasttext_zmq_server.o
+	$(CXX) $(CXXFLAGS) $^ -lzmq -o $@
+
+fasttext_zmq_client: fasttext_zmq_client.o
+	$(CXX) $(CXXFLAGS) $^ -lzmq -o $@
 clean:
-	rm -rf *.o fasttext
+	rm -rf *.o fasttext fasttext_zmq_server fasttext_zmq_client
