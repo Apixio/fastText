@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <math.h>
+#include <csignal>
 
 #include <zmq.hpp>
 
@@ -16,6 +17,22 @@
 
 using namespace std;
 using namespace fasttext;
+
+
+static int s_interrupted = 0;
+static void s_signal_handler(int signal_value) {
+  s_interrupted = 1;
+}
+
+static void s_catch_signals(void) {
+  struct sigaction action;
+  action.sa_handler = s_signal_handler;
+  action.sa_flags = 0;
+  sigemptyset (&action.sa_mask);
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGTERM, &action, NULL);
+}
+
 
 void printUsage() {
   cout
@@ -28,6 +45,9 @@ void printUsage() {
 int main(int argc, char** argv) {
 
   const string SHUTDOWN("[CMD:SHUTDOWN]");
+  const string PING("[CMD:PING]");
+  const string OK("OK");
+  const string PONG("PONG");
 
   if (argc < 3) {
     printUsage();
@@ -40,29 +60,59 @@ int main(int argc, char** argv) {
   cerr << "creating zmq socket... " << endl;
   zmq::socket_t socket(context, ZMQ_REP);  
 
-  cerr << "binding zmq socket to " << argv[1] << endl;
-  socket.bind(argv[1]);
+  // setup socket options
+  int linger_ms = 5000;
+  socket.setsockopt(ZMQ_LINGER, &linger_ms, sizeof(linger_ms));
 
+  s_catch_signals();
 
   cerr << "Loading model file..." << endl;  
   FastText fasttext;
   fasttext.loadModel(string(argv[2]));
   const int32_t k = 1;
 
+  // 5 min receive timeout
+  int receive_timeout_ms = 5 * 60 *1000;
+  socket.setsockopt(ZMQ_RCVTIMEO, &receive_timeout_ms, sizeof(receive_timeout_ms));
+
+  cerr << "binding zmq socket to " << argv[1] << endl;
+  socket.bind(argv[1]);
+
   cerr << "Waiting for requests..." << endl;
   bool done = false;
   while (!done) {
 
     zmq::message_t req_m;
-    socket.recv(&req_m);
+    try {
+
+      bool rv = socket.recv(&req_m);
+      if (rv == false) { // timed out
+	cerr << "No messages received. Timed out. Exiting.." << endl;
+	done = true;
+	continue;
+      }
+
+    } catch(zmq::error_t &e) {
+
+      if (e.num() == EINTR || s_interrupted) {
+	cerr << "Received interrupt. Exiting.. " << endl;
+      } else {
+	cerr << "exception num: " << e.num() << " what: " << e.what() << endl;
+      }
+
+      done = true;
+      continue;
+    }
 
     const string req(static_cast<char *>(req_m.data()), req_m.size());
     string reply;
 
     if (req == SHUTDOWN) {
       cerr << "Received " << SHUTDOWN << " cmd. Exiting.. " << endl;
-      reply = "OK";
+      reply = OK;
       done = true;
+    } else if (req == PING) {
+      reply = PONG;
     } else {
       
       // execute fasttext
@@ -86,7 +136,6 @@ int main(int argc, char** argv) {
       }
 
       reply = ss.str();
-
     }
 
     zmq::message_t reply_m(reply.c_str(), reply.size());

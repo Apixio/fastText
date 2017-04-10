@@ -23,6 +23,7 @@ void printUsage() {
 int main(int argc, char* argv[]) {
 
   const string SHUTDOWN("[CMD:SHUTDOWN]");
+  const string PING("[CMD:PING]");
 
   if (argc < 3) {
     printUsage();
@@ -53,6 +54,18 @@ int main(int argc, char* argv[]) {
     }
     isp = &ifs;
   }
+
+  // send ping
+  {
+    zmq::message_t ping_m(PING.c_str(), PING.size());
+    socket.send(ping_m);
+
+    zmq::message_t ping_resp_m;
+    socket.recv(&ping_resp_m);
+    string PING_RESP(static_cast<char *>(ping_resp_m.data()), ping_resp_m.size());
+    cerr << "PING response : " << PING_RESP << endl;
+  }
+
 
   while (!isp->eof() && !isp->fail()) {
     
