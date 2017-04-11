@@ -55,14 +55,7 @@ int main(int argc, char** argv) {
   }
 
   cerr << "creating zmq context..." << endl;
-  zmq::context_t context(5);
-
-  cerr << "creating zmq socket... " << endl;
-  zmq::socket_t socket(context, ZMQ_REP);  
-
-  // setup socket options
-  int linger_ms = 5000;
-  socket.setsockopt(ZMQ_LINGER, &linger_ms, sizeof(linger_ms));
+  zmq::context_t context(2);
 
   s_catch_signals();
 
@@ -70,6 +63,13 @@ int main(int argc, char** argv) {
   FastText fasttext;
   fasttext.loadModel(string(argv[2]));
   const int32_t k = 1;
+
+  cerr << "creating zmq socket... " << endl;
+  zmq::socket_t socket(context, ZMQ_REP);  
+
+  // setup socket options
+  int linger_ms = 5000;
+  socket.setsockopt(ZMQ_LINGER, &linger_ms, sizeof(linger_ms));
 
   // 5 min receive timeout
   int receive_timeout_ms = 5 * 60 *1000;
