@@ -9,6 +9,7 @@
 #include <string>
 #include <math.h>
 #include <csignal>
+#include <ctime>
 
 #include <zmq.hpp>
 
@@ -59,9 +60,10 @@ int main(int argc, char** argv) {
 
   s_catch_signals();
 
-  cerr << "Loading model file..." << endl;  
+  const string model_file(argv[2]);
+  cerr << "Loading model file: " << model_file << endl;  
   FastText fasttext;
-  fasttext.loadModel(string(argv[2]));
+  fasttext.loadModel(model_file);
   const int32_t k = 1;
 
   cerr << "creating zmq socket... " << endl;
@@ -75,8 +77,9 @@ int main(int argc, char** argv) {
   int receive_timeout_ms = 5 * 60 *1000;
   socket.setsockopt(ZMQ_RCVTIMEO, &receive_timeout_ms, sizeof(receive_timeout_ms));
 
-  cerr << "binding zmq socket to " << argv[1] << endl;
-  socket.bind(argv[1]);
+  const string bind_addr(argv[1]);
+  cerr << "binding zmq socket to " << bind_addr << endl;
+  socket.bind(bind_addr);
 
   cerr << "Waiting for requests..." << endl;
   bool done = false;
@@ -104,7 +107,8 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    const string req(static_cast<char *>(req_m.data()), req_m.size());
+    string req(static_cast<char *>(req_m.data()), req_m.size());
+
     string reply;
 
     if (req == SHUTDOWN) {
@@ -114,10 +118,21 @@ int main(int argc, char** argv) {
     } else if (req == PING) {
       reply = PONG;
     } else {
+
+      
+      char ch = req.back();
+      if (ch != '\n') {
+	req.append("\n");
+      }
       
       // execute fasttext
       istringstream iss(req);
-      cerr << "Received text: " << req << endl;
+
+      time_t  timev;
+      time(&timev);
+
+      // WARNING: DO NOT LOG req
+      cerr << "[" << timev << "]" << "req len: " << req.size() << endl;
       vector<pair<real, string>> vec;
       fasttext.predict(iss, k, vec);
 

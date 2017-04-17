@@ -67,17 +67,12 @@ int main(int argc, char* argv[]) {
   }
 
 
-  while (!isp->eof() && !isp->fail()) {
-    
-    char buf[8192];
-    bzero(buf, 8192);
-    isp->getline(buf, 8192);
+  string line;
+  while (getline(*isp, line)) {
 
-    int len = strlen(buf);
-    if (len == 0)
-      continue;
+    line.append("\n");
 
-    zmq::message_t request_m(buf, len);
+    zmq::message_t request_m(line.c_str(), line.size());
     socket.send(request_m);
 
     zmq::message_t reply_m;
@@ -85,6 +80,7 @@ int main(int argc, char* argv[]) {
 
     string reply(static_cast<char *>(reply_m.data()), reply_m.size());
     cerr << "REPLY: " << reply << endl;
+
   }
 
   return 0;
