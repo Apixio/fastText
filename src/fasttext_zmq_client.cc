@@ -70,8 +70,6 @@ int main(int argc, char* argv[]) {
   string line;
   while (getline(*isp, line)) {
 
-    line.append("\n");
-
     zmq::message_t request_m(line.c_str(), line.size());
     socket.send(request_m);
 
