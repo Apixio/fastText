@@ -40,6 +40,7 @@ void printUsage() {
     << "usage: fasttext_zmq_server <ip:port> <model>\n\n"
     << "  <ip:port>   ip and port to listen on\n"
     << "  <model>     model filename\n" 
+    << "  <timeout_ms>   timeout in milliseconds between requests (default 30 min)\n"
     << endl;
 }
 
@@ -73,8 +74,17 @@ int main(int argc, char** argv) {
   int linger_ms = 5000;
   socket.setsockopt(ZMQ_LINGER, &linger_ms, sizeof(linger_ms));
 
-  // 5 min receive timeout
-  int receive_timeout_ms = 5 * 60 *1000;
+  // default 30 min receive timeout
+  int DEF_TIMEOUT_MS = 30 * 60 *1000;
+  int receive_timeout_ms = DEF_TIMEOUT_MS;
+  if (argc >= 4) {
+    receive_timeout_ms = atoi(argv[3]);
+    if (receive_timeout_ms == 0) {
+      cerr << "[WARN] cannot use specified timeout: " << argv[3] << ". Using default timeout" << endl;
+      receive_timeout_ms = DEF_TIMEOUT_MS;
+    }
+  }
+  cerr << "setting receive timeout (ms) to: " << receive_timeout_ms << endl;
   socket.setsockopt(ZMQ_RCVTIMEO, &receive_timeout_ms, sizeof(receive_timeout_ms));
 
   const string bind_addr(argv[1]);
